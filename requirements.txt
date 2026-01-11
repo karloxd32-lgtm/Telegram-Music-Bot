@@ -1,0 +1,7 @@
+pyrogram==2.0.106
+pytgcalls==3.0.0.dev33
+youtube-search-python==1.6.6
+yt-dlp==2023.10.13
+python-dotenv==1.0.0
+aiohttp==3.8.6
+aiofiles==23.2.1
