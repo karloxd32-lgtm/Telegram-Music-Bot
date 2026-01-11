@@ -1,0 +1,103 @@
+# render.yaml
+version: 1
+
+services:
+  # Main Telegram Music Bot Service
+  - type: worker
+    name: telegram-music-bot
+    env: python
+    region: oregon  # or: frankfurt, singapore, ohio, oregon, sydney
+    plan: free  # or: starter, standard, pro
+    buildCommand: |
+      sudo apt-get update
+      sudo apt-get install -y ffmpeg opus-tools
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: python main.py
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: SESSION_NAME
+        value: music_bot
+      - key: TZ
+        value: UTC
+      - key: PYTHONUNBUFFERED
+        value: 1
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    numInstances: 1
+
+  # Web Dashboard Service (Optional)
+  - type: web
+    name: music-bot-dashboard
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements-dashboard.txt
+    startCommand: gunicorn dashboard:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: BOT_URL
+        value: https://telegram-music-bot.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /*
+    healthCheckPath: /health
+    autoDeploy: false
+    numInstances: 1
+
+# Cron Jobs (for maintenance)
+jobs:
+  # Cleanup temporary files every hour
+  - type: cron
+    name: cleanup-temp-files
+    schedule: "0 * * * *"  # Every hour
+    plan: free
+    env: python
+    region: oregon
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: python scripts/cleanup.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+
+  # Backup database daily
+  - type: cron
+    name: backup-data
+    schedule: "0 0 * * *"  # Daily at midnight
+    plan: free
+    env: python
+    region: oregon
+    buildCommand: |
+      pip install --upgrade pip
+      pip install boto3  # For S3 backup
+    startCommand: python scripts/backup.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
